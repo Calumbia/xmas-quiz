@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School Christmas Quiz</title>
+<style>
+:root{--bg:#12372a;--bg2:#0c271d;--red:#b3202f;--gold:#f2c14e;--snow:#f7f9f8;--ink:#14201b;--ok:#2e9e5b;--bad:#c93a3a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -10%,var(--bg),var(--bg2));color:var(--snow);font:17px/1.5 "Trebuchet MS",system-ui,sans-serif}
+main{max-width:560px;margin:0 auto;padding:20px 16px 48px}
+h1,h2{font-family:Georgia,"Times New Roman",serif;font-weight:700;line-height:1.15;margin:0 0 12px}
+h1{font-size:2.3rem;color:var(--gold)}h2{font-size:1.45rem}
+.card{background:var(--snow);color:var(--ink);border-radius:16px;padding:20px;margin-top:16px}
+label{display:block;font-weight:700;margin:12px 0 4px}
+input,select{width:100%;font:inherit;padding:12px;border:2px solid #b9c7c0;border-radius:10px;background:#fff;color:var(--ink)}
+button{font:inherit;font-weight:700;cursor:pointer;border:0;border-radius:12px;padding:14px 18px;background:var(--red);color:#fff;width:100%;margin-top:16px}
+button.alt{background:transparent;color:var(--gold);border:2px solid var(--gold)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.lights{display:flex;justify-content:space-between;gap:2px;margin:6px 0 4px;padding-top:6px;border-top:2px solid #0006}
+.bulb{width:12px;height:18px;border-radius:50% 50% 55% 55%;background:#3b5a4c;transition:background .3s,box-shadow .3s}
+.bulb.now{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.bulb.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}.bulb.bad{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+.meta{display:flex;justify-content:space-between;font-size:.95rem;color:#cfe0d8}
+.opt{background:#fff;color:var(--ink);border:2px solid #b9c7c0;text-align:left;margin-top:10px;font-weight:600}
+.opt.ok{background:#d6f3e1;border-color:var(--ok)}.opt.bad{background:#f9d9d9;border-color:var(--bad)}
+.opt:disabled{cursor:default;opacity:1}
+.big{font:700 4rem/1 Georgia,serif;color:var(--red);margin:4px 0}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 6px;text-align:left;border-bottom:1px solid #d5ded9}
+th{font-size:.9rem}td:first-child{width:2rem;font-weight:700}td:nth-child(n+3){white-space:nowrap}
+tr.me{background:#fff3cf}
+.note{font-size:.9rem;color:#46594f;margin-top:8px}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+
+<section id="start">
+  <h1>The Great Christmas Quiz</h1>
+  <p>20 questions. Light every bulb green. Fastest time breaks a tie.</p>
+  <div class="card">
+    <label for="first">First name</label>
+    <input id="first" maxlength="20" autocomplete="given-name" placeholder="e.g. Ailsa">
+    <label for="last">Last name</label>
+    <input id="last" maxlength="25" autocomplete="family-name" placeholder="e.g. MacLeod">
+    <label for="year">Your year</label>
+    <select id="year"><option value="">Choose your year</option><option>S1</option><option>S2</option><option>S3</option><option>S4</option><option>S5</option><option>S6</option></select>
+    <label for="cls">Your class</label>
+    <input id="cls" maxlength="8" autocomplete="off" placeholder="e.g. 3B2">
+    <p id="err" class="note" style="color:#a01e1e" hidden>Enter your first name, last name and class, and choose your year, to start.</p>
+    <button id="go">Start the quiz</button>
+    <p class="note">The leaderboard shows your first name, the first letter of your last name and your class.</p>
+  </div>
+  <button class="alt" id="viewLb">See the leaderboard</button>
+</section>
+
+<section id="quiz" hidden>
+  <div class="lights" id="lights" aria-hidden="true"></div>
+  <div class="meta"><span id="qn"></span><span id="clock"></span></div>
+  <div class="card">
+    <h2 id="q"></h2>
+    <div id="opts"></div>
+    <button id="next" hidden>Next question</button>
+  </div>
+</section>
+
+<section id="end" hidden>
+  <h1>Done!</h1>
+  <div class="card" style="text-align:center">
+    <div class="big"><span id="score"></span>/20</div>
+    <p id="msg"></p>
+    <p class="note" id="saved"></p>
+    <button id="seeLb">See the leaderboard</button>
+    <button class="alt" id="again" style="color:var(--red);border-color:var(--red)">Play again</button>
+  </div>
+</section>
+
+<section id="lb" hidden>
+  <h1>Leaderboard</h1>
+  <div class="card">
+    <label for="filter">Show</label>
+    <select id="filter"><option value="">Whole school</option><option>S1</option><option>S2</option><option>S3</option><option>S4</option><option>S5</option><option>S6</option></select>
+    <div id="board" style="margin-top:12px"></div>
+    <p class="note" id="lbnote"></p>
+    <button id="refresh">Refresh</button>
+  </div>
+  <button class="alt" id="backHome">Back to start</button>
+</section>
+
+</main>
+<script>
+// ====== SETUP: paste your Google Apps Script web app URL between the quotes (see setup steps) ======
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbyqdNtQ0ZdYPDHMr0ebCwPTyRjvu8d_pEDMiga1mAn50o0OODBKFEC51yBJLI1RC8LaDw/exec";
+// ==================================================================================================
+
+const QUESTIONS = [
+ ["In which town was Jesus born, according to the Bible?",["Bethlehem","Nazareth","Jerusalem","Jericho"],0],
+ ["Which country is credited with starting the Christmas tree tradition?",["Germany","Canada","Italy","Sweden"],0],
+ ["Not counting Rudolph, how many reindeer pull Santa's sleigh in the classic poem?",["6","8","9","12"],1],
+ ["On the first day of Christmas, my true love gave to me...?",["Two turtle doves","Five gold rings","A partridge in a pear tree","Three French hens"],2],
+ ["Which Dickens character says \"Bah! Humbug!\"?",["Bob Cratchit","Ebenezer Scrooge","Tiny Tim","Fagin"],1],
+ ["What was the name of Scrooge's late business partner?",["Jacob Marley","Fred Fezziwig","Harry Fagin","Edmund Dantes"],0],
+ ["Which plant do people traditionally kiss under at Christmas?",["Holly","Ivy","Mistletoe","Poinsettia"],2],
+ ["What is the Scottish word for New Year's Eve?",["Hogmanay","Samhain","Beltane","Burns Night"],0],
+ ["The poinsettia, a popular Christmas plant, comes originally from which country?",["Brazil","Mexico","Spain","India"],1],
+ ["Which film features Kevin McCallister defending his house from burglars?",["Elf","The Santa Clause","Home Alone","Jingle All the Way"],2],
+ ["Which three gifts did the Three Wise Men bring?",["Gold, silver and bronze","Gold, frankincense and myrrh","Silk, spice and gold","Bread, wine and gold"],1],
+ ["Which drinks company's adverts helped make Santa's red suit famous?",["Pepsi","Irn-Bru","Coca-Cola","Fanta"],2],
+ ["How many days of Christmas are there in the song?",["7","10","12","25"],2],
+ ["Who composed the ballet The Nutcracker?",["Mozart","Tchaikovsky","Beethoven","Handel"],1],
+ ["Which country sends a giant Christmas tree to London's Trafalgar Square each year?",["Norway","France","Finland","USA"],0],
+ ["On what date is Boxing Day?",["24 December","25 December","26 December","1 January"],2],
+ ["Which Christmas song is the best-selling single of all time?",["Last Christmas","White Christmas","Jingle Bells","Fairytale of New York"],1],
+ ["In the film Elf, what does Buddy pour on his spaghetti?",["Maple syrup","Chocolate sauce","Ketchup","Honey"],0],
+ ["In what year did Christmas Day become a public holiday in Scotland?",["1858","1908","1958","1998"],2],
+ ["What is the name of the Grinch's dog?",["Rex","Max","Buddy","Spot"],1]
+];
+
+const $ = id => document.getElementById(id);
+const show = id => { ["start","quiz","end","lb"].forEach(s => $(s).hidden = s !== id); window.scrollTo(0,0); };
+const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const fmt = s => Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+
+let deck, idx, score, t0, tick, player, lastEntry;
+
+function lights(){
+  $("lights").innerHTML = deck.map(()=>'<span class="bulb"></span>').join("");
+}
+function startQuiz(){
+  const first = $("first").value.trim(), last = $("last").value.trim(), cls = $("cls").value.trim().toUpperCase(), year = $("year").value;
+  const ok = !!(first && last && cls && year);
+  $("err").hidden = ok;
+  if (!ok) return;
+  player = {first, last, cls, year};
+  deck = shuffle(QUESTIONS).map(q => {
+    const correct = q[1][q[2]];
+    return {q:q[0], opts:shuffle(q[1]), correct};
+  });
+  idx = 0; score = 0; t0 = Date.now();
+  clearInterval(tick);
+  tick = setInterval(()=>{ $("clock").textContent = fmt(Math.floor((Date.now()-t0)/1000)); }, 500);
+  lights(); show("quiz"); ask();
+}
+function ask(){
+  const d = deck[idx];
+  $("qn").textContent = "Question " + (idx+1) + " of " + deck.length;
+  $("q").textContent = d.q;
+  $("next").hidden = true;
+  document.querySelectorAll(".bulb")[idx].classList.add("now");
+  $("opts").innerHTML = "";
+  d.opts.forEach(o => {
+    const b = document.createElement("button");
+    b.className = "opt"; b.textContent = o;
+    b.onclick = () => pick(b, o);
+    $("opts").appendChild(b);
+  });
+}
+function pick(btn, choice){
+  const d = deck[idx], right = choice === d.correct;
+  if (right) score++;
+  document.querySelectorAll(".opt").forEach(b => {
+    b.disabled = true;
+    if (b.textContent === d.correct) b.classList.add("ok");
+  });
+  if (!right) btn.classList.add("bad");
+  const bulb = document.querySelectorAll(".bulb")[idx];
+  bulb.classList.remove("now"); bulb.classList.add(right ? "ok" : "bad");
+  $("next").textContent = idx === deck.length-1 ? "See my score" : "Next question";
+  $("next").hidden = false; $("next").focus();
+}
+async function finish(){
+  clearInterval(tick);
+  const seconds = Math.floor((Date.now()-t0)/1000);
+  lastEntry = {first:player.first, last:player.last, cls:player.cls, year:player.year, score, seconds};
+  $("score").textContent = score;
+  $("msg").textContent = (score>=18 ? "Christmas genius!" : score>=14 ? "Brilliant effort!" : score>=9 ? "Not bad at all." : "Good try. Have another go!") + " Time: " + fmt(seconds) + ".";
+  $("saved").textContent = "Saving your score...";
+  show("end");
+  saveLocal(lastEntry);
+  if (SHEET_URL) {
+    try {
+      await fetch(SHEET_URL, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify(lastEntry)});
+      $("saved").textContent = "Your score is on the leaderboard.";
+    } catch (e) { $("saved").textContent = "Could not reach the leaderboard. Your score is saved on this device only."; }
+  } else {
+    $("saved").textContent = "Leaderboard not connected yet. Score saved on this device only.";
+  }
+}
+
+function saveLocal(e){
+  try { const a = JSON.parse(localStorage.getItem("xmasquiz")||"[]"); a.push(e); localStorage.setItem("xmasquiz", JSON.stringify(a.slice(-200))); } catch(_){}
+}
+function loadLocal(){ try { return JSON.parse(localStorage.getItem("xmasquiz")||"[]"); } catch(_) { return []; } }
+
+async function showBoard(){
+  show("lb");
+  $("board").textContent = "Loading...";
+  let rows = [], online = false;
+  if (SHEET_URL) {
+    try { const r = await fetch(SHEET_URL); rows = await r.json(); online = true; } catch(_){}
+  }
+  if (!online) { rows = loadLocal(); }
+  $("lbnote").textContent = online ? "Live from the school leaderboard." : (SHEET_URL ? "Could not reach the school leaderboard. Showing scores from this device." : "Showing scores from this device only until the Google Sheet is connected.");
+  draw(rows);
+}
+function draw(rows){
+  const f = $("filter").value;
+  rows = rows.filter(r => !f || r.year === f)
+    .map(r => ({first:String(r.first||""), last:String(r.last||""), cls:String(r.cls||""), year:String(r.year), score:Number(r.score), seconds:Number(r.seconds)}))
+    .sort((a,b) => b.score-a.score || a.seconds-b.seconds).slice(0,20);
+  const box = $("board");
+  if (!rows.length) { box.textContent = "No scores yet. Be the first on the board!"; return; }
+  const t = document.createElement("table");
+  t.innerHTML = "<tr><th>#</th><th>Name</th><th>Class</th><th>Score</th><th>Time</th></tr>";
+  rows.forEach((r,i) => {
+    const tr = document.createElement("tr");
+    if (lastEntry && r.first===lastEntry.first && r.last.charAt(0)===lastEntry.last.charAt(0) && r.cls===lastEntry.cls && r.score===lastEntry.score && r.seconds===lastEntry.seconds) tr.className = "me";
+    [i+1, r.first + " " + r.last.charAt(0) + ".", r.cls || r.year, r.score+"/20", fmt(r.seconds)].forEach(v => { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
+    t.appendChild(tr);
+  });
+  box.innerHTML = ""; box.appendChild(t);
+}
+
+$("go").onclick = startQuiz;
+$("next").onclick = () => { idx++; idx < deck.length ? ask() : finish(); };
+$("viewLb").onclick = $("seeLb").onclick = $("refresh").onclick = showBoard;
+$("filter").onchange = showBoard;
+$("again").onclick = $("backHome").onclick = () => show("start");
+</script>
+</body>
+</html>
